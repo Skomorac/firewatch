@@ -841,8 +841,13 @@ function renderHeader(){
   // would only offer a dead link.
   const docsLink = DATA.public_url
     ? ` &nbsp;|&nbsp; <a href="docs/" class="foot-link">${t("docs")}</a>` : "";
+  // From the boundary file `setup` wrote, not a literal: a hardcoded id stays a
+  // valid OSM relation, so a fork publicly credits its own outline to the
+  // municipality it was copied from and nothing anywhere reports it.
+  const rel = (BOUNDARY.features?.[0]?.properties?.source || "").match(/\d+/)?.[0];
+  const credit = rel ? `OSM rel. ${rel}` : "OpenStreetMap";
   document.getElementById("foot").innerHTML =
-    `Meteosat MTG · VIIRS/MODIS FIRMS · Sentinel-3 &nbsp;|&nbsp; ${t("boundary")}: OSM rel. 2528292${docsLink}`;
+    `Meteosat MTG · VIIRS/MODIS FIRMS · Sentinel-3 &nbsp;|&nbsp; ${t("boundary")}: ${credit}${docsLink}`;
 }
 
 // Chrome on Android reports the visible height in innerHeight, so this keeps a
