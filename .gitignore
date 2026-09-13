@@ -18,3 +18,5 @@ state/fire-map*.js
 state/fire-map*.html
 state/snapshot.json
 state/firewatch.log
+state/firewatch.db-shm
+state/firewatch.db-wal
