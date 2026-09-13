@@ -1,26 +1,29 @@
 {
-  "id": "zavidovici",
-  "boundary": "zavidovici.geojson",
-  "settlements": "settlements.json",
-  "buffer": "zavidovici-buffer.geojson",
-  "town": { "lat": 44.4388706, "lon": 18.1458239 },
+  "id": "zenica",
+  "boundary": "zenica.geojson",
+  "settlements": "zenica-settlements.json",
+  "buffer": "zenica-buffer.geojson",
+  "town": {
+    "lat": 44.19983,
+    "lon": 17.9093
+  },
   "timezone": "Europe/Sarajevo",
   "language": "bs",
   "names": {
     "en": {
-      "title": "FireWatch Zavidovići",
-      "area": "Grad Zavidovići",
-      "of": "of Zavidovići",
-      "in": "in Zavidovići",
-      "near": "near Zavidovići",
+      "title": "FireWatch Zenica",
+      "area": "Grad Zenica",
+      "of": "of Zenica",
+      "in": "in Zenica",
+      "near": "near Zenica",
       "outside": "outside municipality"
     },
     "bs": {
-      "title": "FireWatch Zavidovići",
-      "area": "Grad Zavidovići",
-      "of": "od Zavidovića",
-      "in": "u općini Zavidovići",
-      "near": "blizu Zavidovića",
+      "title": "FireWatch Zenica",
+      "area": "Grad Zenica",
+      "of": "od Zenice",
+      "in": "u općini Zenica",
+      "near": "blizu Zenice",
       "outside": "izvan općine"
     }
   }
