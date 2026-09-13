@@ -243,12 +243,17 @@ def diff(previous: dict[str, dict], current: list[dict]) -> list[dict]:
 
         o_frp, n_frp = old.get("max_frp"), ev.get("max_frp")
         if o_frp and n_frp and n_frp >= o_frp * factor and (n_frp - o_frp) >= min_mw:
-            alerts.append({"kind": "intensified", "event": ev,
-                           "detail": f"{o_frp:.0f} to {n_frp:.0f} MW"})
+            # Same guard as `new`, for the same reason: backfill inserts old
+            # detections into old events, which stay quiet while their FRP and
+            # footprint change. "It grew a week ago" is not news - and both this
+            # kind and `grew` are in sms_kinds, so it would have been a text.
+            if ev["status"] == "active":
+                alerts.append({"kind": "intensified", "event": ev,
+                               "detail": f"{o_frp:.0f} to {n_frp:.0f} MW"})
 
         if ev["n_det"] > old.get("n_det", 0):
             grew_km = ev["extent_km"] - old.get("extent_km", 0.0)
-            if grew_km >= 0.5:
+            if grew_km >= 0.5 and ev["status"] == "active":
                 alerts.append({"kind": "grew", "event": ev,
                                "detail": f"footprint +{grew_km:.1f} km "
                                          f"(now {ev['extent_km']:.1f} km across)"})

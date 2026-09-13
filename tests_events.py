@@ -41,6 +41,19 @@ check("intensified", events.diff({e1["id"]: e1}, [e2]), {"intensified"})
 e3 = ev(base + [det("c", 5, lat=44.325, lon=18.30)])
 check("grew (footprint)", events.diff({e1["id"]: e1}, [e3]), {"grew"})
 
+# 4b. a QUIET event that gained FRP and footprint must stay silent. This is
+#     exactly what `backfill` does: it inserts old detections into old events,
+#     which never return to "active". Written out rather than via check(),
+#     because check() passes vacuously when `want` is empty.
+q_old = ev([det("i", 60 * 9)])
+q_new = ev([det("i", 60 * 9), det("j", 60 * 8, frp=40.0, lat=44.325, lon=18.30)])
+kinds = {a["kind"] for a in events.diff({q_old["id"]: q_old}, [q_new])}
+ok = not (kinds & {"intensified", "grew"})
+print(f"  {'PASS' if ok else 'FAIL'}  {'quiet event: no intensified/grew':34s} "
+      f"got={sorted(kinds)} want⊉['grew','intensified']")
+if ok: passed += 1
+else: failed += 1
+
 # 5. corroborated: a second satellite sees it
 e4 = ev(base + [det("d", 5, src="firms")])
 check("corroborated (new source)", events.diff({e1["id"]: e1}, [e4]), {"corroborated"})
