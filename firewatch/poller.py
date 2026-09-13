@@ -13,7 +13,7 @@ import threading
 import time
 from datetime import timedelta
 
-from . import enrich, events, expose, mapgen, notify, sms, sources, store
+from . import enrich, events, expose, firedanger, imagery, mapgen, notify, sms, sources, store
 from .config import (CFG, LOG_PATH, SNAPSHOT_PATH, RedactingFormatter,
                      ensure_dirs, public_url as config_public_url)
 from .store import iso, utcnow
@@ -154,6 +154,19 @@ class Poller:
                     ev["weather"] = w
                     ev["risk"] = enrich.fire_risk(w)
 
+            # Keyless catalogue check every cycle, a render only when the scene
+            # date changes - the look is free, the pixels are not.
+            s2 = imagery.refresh(con)
+
+            # Same "cheap to check, rare to actually do work" shape: gated inside
+            # to at most twice a day, so calling it every cycle costs nothing on
+            # the ~140 cycles that are not one of those two.
+            try:
+                fire_danger = firedanger.update(con)
+            except Exception:
+                log.exception("fire danger update failed")
+                fire_danger = None
+
             alerts = events.diff(previous, current)
             store.save_events(con, current)
 
@@ -210,6 +223,14 @@ class Poller:
                 "alerts_sent": [{"kind": a["kind"], "id": a["event"]["id"],
                                  "detail": a.get("detail", "")} for a in sent],
                 "notify_backend": notify.backend(),
+                # None until a scene has been rendered; the map omits the layer
+                # rather than drawing an empty rectangle, exactly as it does for
+                # a missing buffer band.
+                "imagery": s2,
+                # None when disabled, or before the first successful computation -
+                # the map's fire-danger panel omits itself rather than showing a
+                # stale or fabricated reading.
+                "fire_danger": fire_danger,
             }
             with self.lock:
                 self.snapshot = snap
@@ -295,7 +316,8 @@ def _empty_snapshot() -> dict:
             "default_range": CFG.get("default_range", events.DEFAULT_RANGE),
             "source_status": {}, "window_hours": CFG["window_hours"],
             "buffer_km": CFG["nearby_buffer_km"], "n_detections": 0,
-            "alerts_sent": [], "notify_backend": notify.backend()}
+            "alerts_sent": [], "notify_backend": notify.backend(),
+            "imagery": None, "fire_danger": None}
 
 
 def load_snapshot() -> dict:

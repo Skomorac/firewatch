@@ -6,8 +6,21 @@ Near-live wildfire monitoring for **Grad (opština) Zavidovići** — 560 km² o
 in central Bosnia. Three satellite feeds, clustered into tracked fires, alerting by SMS in
 Bosnian and drawing a map that updates itself.
 
-Nothing here is specific to Zavidovići: point it at your own municipality and it runs
-there instead, on GitHub Actions and Pages, which for a public repository costs nothing.
+The system is not specific to Zavidovići — this branch is. Point it at your own
+municipality and it runs there instead, on GitHub Actions and Pages, which for a public
+repository costs nothing.
+
+> ### Forking? Start from [`fork-template`](../../tree/fork-template), not `main`
+>
+> Same system, with every mention of this municipality moved out of the code and into one
+> file. Re-pointing it is `python3 -m firewatch setup "Općina Kakanj"` instead of an edit to
+> `config.py`, and the map URL is derived from your repository instead of written down.
+> **[FORK.md](../../blob/fork-template/FORK.md)** is the whole procedure — four steps.
+>
+> `main` is this deployment, and it says so in the code. Fork it and two things follow that
+> nothing will tell you about: every detection is still clipped against Zavidovići's
+> outline, and both workflows still carry _this_ repository's Pages URL — which stays a
+> valid, working URL, so every SMS your fork sends links to the map above.
 
 ## Why
 
@@ -23,7 +36,7 @@ overnight gap, then the processing. By then it is history, not a warning.
 
 ![Satellite observations of one fire over 27 hours with night shaded: Meteosat watching continuously and detecting it at 18:40 after dark, Sentinel-3 twice at 20:01, VIIRS eleven times between 00:41 and 01:45, MODIS at 07:58, and one 6 h 13 m gap before dawn, plus each feed's pixel size and the weakest fire it has reported](docs/img/timing-gaps.svg)
 
-*3–4 September 2026, a fire 2.1 km south of Suha; night is shaded. **Detection does not
+_3–4 September 2026, a fire 2.1 km south of Suha; night is shaded. **Detection does not
 stop at sunset** — thermal infrared needs no daylight. Meteosat caught this one at 18:40
 UTC after dark, Sentinel-3 twice at 20:01, and VIIRS eleven times between 00:41 and 01:45
 while it burned at 1.3–3.0 MW. The single real gap is the 6 h 13 m before dawn: it lines up
@@ -31,7 +44,7 @@ with the 04–07 UTC window in which no polar satellite crosses this latitude, a
 could not fill it because the fire was well under its floor. The band underneath is
 measured over this municipality's whole history to September 2026 — 133 VIIRS detections,
 49 Meteosat, 8 each from MODIS and Sentinel-3 — so read the two 1 km figures as indicative
-rather than settled.*
+rather than settled._
 
 End to end, that puts Meteosat about **39 minutes** behind ignition and FIRMS about
 **200 minutes** at best — 11 hours at worst, when an overnight gap is followed by hours of
@@ -45,11 +58,11 @@ eleven hours.
 Every cycle it fetches three feeds, keeps what falls inside the municipality, folds the
 detections into tracked fire events, works out what changed, and tells you.
 
-| Feed | Resolution | Cadence | Latency | Brings |
-|---|---|---|---|---|
-| Meteosat MTG FRP | ~4 km | **10 min** | ~25 min | continuity — it is watching at 3am |
-| VIIRS + MODIS (FIRMS) | 375 m / 1 km | 4–7 / day | ~3 h | sensitivity to small fires |
-| Sentinel-3 SLSTR FRP | 1 km | ~2 / day | 1–3 h | extra passes, corroboration |
+| Feed                  | Resolution   | Cadence    | Latency | Brings                             |
+| --------------------- | ------------ | ---------- | ------- | ---------------------------------- |
+| Meteosat MTG FRP      | ~4 km        | **10 min** | ~25 min | continuity — it is watching at 3am |
+| VIIRS + MODIS (FIRMS) | 375 m / 1 km | 4–7 / day  | ~3 h    | sensitivity to small fires         |
+| Sentinel-3 SLSTR FRP  | 1 km         | ~2 / day   | 1–3 h   | extra passes, corroboration        |
 
 They fail in opposite directions, which is the whole reason for carrying all three.
 Meteosat never stops looking, but the weakest fire it has ever reported here is 4.4 MW,
@@ -76,7 +89,7 @@ Alerts are written in Bosnian and transliterated to ASCII so they stay inside on
 160-character SMS segment — measured at at most 153 characters across every stored event
 and alert kind.
 
-**What it is not.** These are satellite *thermal anomalies*, not confirmed wildfires:
+**What it is not.** These are satellite _thermal anomalies_, not confirmed wildfires:
 industrial heat, flares and agricultural burning all register, so verify before acting.
 Cloud blocks every one of these sensors. Small fires are invisible to the fast feed. And
 for a fire near people, a phone call still beats every satellite here by hours — this is
@@ -106,14 +119,14 @@ fire arriving from three sensors at three resolutions, recognised as one thing.
 
 ![The alert state machine: a first detection enters ACTIVE and raises new, five quiet hours moves it to QUIET and raises extinguished, a fresh detection returns it as reignited](docs/img/alert-states.svg)
 
-| Alert | Trigger | |
-|---|---|---|
-| `new` | a fire never reported before | SMS |
-| `intensified` | peak power up ≥1.5× and ≥3 MW | SMS |
-| `grew` | more detections **and** footprint wider by ≥0.5 km | SMS |
-| `reignited` | a quiet event is producing detections again | SMS |
-| `corroborated` | a second independent satellite now sees it | log only |
-| `extinguished` | nothing for `quiet_hours` | silent |
+| Alert          | Trigger                                            |          |
+| -------------- | -------------------------------------------------- | -------- |
+| `new`          | a fire never reported before                       | SMS      |
+| `intensified`  | peak power up ≥1.5× and ≥3 MW                      | SMS      |
+| `grew`         | more detections **and** footprint wider by ≥0.5 km | SMS      |
+| `reignited`    | a quiet event is producing detections again        | SMS      |
+| `corroborated` | a second independent satellite now sees it         | log only |
+| `extinguished` | nothing for `quiet_hours`                          | silent   |
 
 Each event and kind is rate-limited to one alert per 25 minutes. Only the four SMS kinds
 reach anybody on a runner: there is no desktop to notify, so `corroborated` lands in the
@@ -121,7 +134,7 @@ log and `extinguished` is deliberately silent.
 
 `active` is one line of code and a claim about the data: the newest detection in the
 cluster is younger than `quiet_hours` (5), recomputed every cycle so no status can get
-stuck. It asserts that *a satellite still reports heat*, not that the fire is out — which
+stuck. It asserts that _a satellite still reports heat_, not that the fire is out — which
 is why `extinguished` is silent. It is news about the feed, not about the forest.
 
 ## How it runs on GitHub
@@ -160,15 +173,15 @@ no credentials:
     python3 -m firewatch poll                       # a real cycle, printed
     python3 -m firewatch map                        # opens the map it just built
 
-To run it for your own town: fork it and **keep it public** — a private repo bills Actions
-minutes and needs a paid plan for Pages. Set four repository secrets: `FIRMS_MAP_KEY`
+To run it for your own town, fork the [`fork-template`](../../tree/fork-template) branch —
+not `main` — and **keep it public**: a private repo bills Actions minutes and needs a paid
+plan for Pages. Set four repository secrets: `FIRMS_MAP_KEY`
 ([free, arrives in seconds](https://firms.modaps.eosdis.nasa.gov/api/map_key/), and
-optional — without it the other two feeds carry the cycle), `HTTPSMS_API_KEY`
-([your **account** key](https://httpsms.com/settings) — not the phone key the Android
-gateway app signs in with; [FORK.md](FORK.md#setting-up-the-sms-gateway) has the whole
-setup), `HTTPSMS_FROM`, and `FIREWATCH_SMS_TO`, recipients being a secret because a
-public repo would publish the numbers. Set **Workflow permissions** to read/write and **Pages source**
-to *GitHub Actions*, run `poll` once from the Actions tab, then point a cron service at:
+optional — without it the other two feeds carry the cycle), `HTTPSMS_API_KEY`,
+`HTTPSMS_FROM`, and `FIREWATCH_SMS_TO`, recipients being a secret because a public repo
+would publish the numbers. Set **Workflow permissions** to read/write and **Pages source**
+to _GitHub Actions_, put your Pages URL in `FIREWATCH_PUBLIC_URL` in **both** workflow
+files, run `poll` once from the Actions tab, then point a cron service at:
 
     POST https://api.github.com/repos/<you>/<repo>/actions/workflows/poll.yml/dispatches
     Authorization: Bearer <token>      # fine-grained PAT, Actions: read and write
@@ -176,33 +189,36 @@ to *GitHub Actions*, run `poll` once from the Actions tab, then point a cron ser
 
     {"ref":"main"}                     # required: an empty body is 422, success is 204
 
+The map URL that goes into every SMS is handled differently on the two branches, and this
+is the one that fails without erroring: `fork-template` computes
+`https://<owner>.github.io/<repo>` and prints what it resolved, while on `main` it is a
+literal in **both** workflow files which you have to replace with your own.
+
 Ten to fifteen minutes is the sweet spot; faster buys nothing against a feed that
 publishes every ten. One caveat worth checking before you start: Meteosat sees roughly
 **60°W to 60°E**. Outside that arc everything still works, but you lose the fast feed and
 alerts arrive around three hours late instead of forty minutes.
 
 **Then give it your own geography.** Every detection is clipped against Zavidovići's
-outline, so a fork left alone watches Bosnia whoever owns it. One command changes that:
+outline, so a fork left alone watches Bosnia whoever owns it. Three files in `data/` define
+the place — build-time artifacts you generate once locally and commit, so Nominatim and
+Overpass are never called at runtime:
 
-    python3 -m firewatch setup "Općina Kakanj"    # the ADMINISTRATIVE name, not the town
-    python3 -m firewatch buffer                   # the dashed band; needs shapely + pyproj
-    python3 -m firewatch place                    # check what it did
+| File                        | What it is                                                                                        | How you get it                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `zavidovici.geojson`        | the **municipality polygon** — a 731-point outline every detection is tested against              | Nominatim, searching the _administrative_ name ("Općina Kakanj", not "Kakanj") for the boundary relation |
+| `zavidovici-buffer.geojson` | the **2 km buffer polygon**, drawn as the dashed band and used to flag fires just over the border | `python3 -m firewatch buffer` — the one command needing `shapely` and `pyproj`                           |
+| `settlements.json`          | 413 named places, which turn coordinates into "7.0 km ESE of Kamenica"                            | Overpass, within a radius wider than the municipality                                                    |
 
-`setup` fetches the municipality polygon from Nominatim and the settlement list — the
-names that turn coordinates into "7.0 km ESE of Kamenica" — from Overpass, and writes
-`data/place.json`. That file is the only thing in the repository that names a place: the
-map title, the reference point every "of town" bearing is measured from, the notification
-wording, the timezone and the language the map opens in all read it. Both are build-time
-artifacts, committed, so neither service is ever called at runtime. Delete
-`state/firewatch.db` too, or you inherit Bosnia's fire history — `place` tells you how much
-of it is still there.
+Then four constants in `firewatch/config.py` point at them — `BOUNDARY_GEOJSON`,
+`BUFFER_GEOJSON`, `SETTLEMENTS_JSON`, and `TOWN_LAT`/`TOWN_LON`, the town centre every
+"of town" distance and bearing is measured from. Delete `state/firewatch.db` too, or you
+inherit Bosnia's fire history.
 
-The steps that fail silently are the reason the written procedure is still worth reading:
-an Overpass regional mirror answers HTTP 200 with an empty settlement list, which would
-label every fire by bare coordinates (`setup` treats that as a failed request, never an
-answer), and changing the buffer distance without rebuilding the band makes the map omit it
-rather than draw it wrong. Both, and the SMS segment budget your repository name eats into,
-are covered in
+Two of those steps fail silently, which is why the written procedure is worth following:
+change the buffer without rebuilding the polygon and the map omits the band rather than
+drawing it wrong, and an Overpass regional mirror can return an empty settlement list,
+leaving every fire labelled by bare coordinates. Both are covered, with the scripts, in
 **[Point it at your municipality](https://mirza-basic.github.io/firewatch/docs/firewatch-fork.html#place)**
 — run end to end against a neighbouring municipality: a 601-vertex boundary, 506
 settlements, a built band, and a full cycle against the new bounding box. [FORK.md](FORK.md)
@@ -224,6 +240,13 @@ has every command and every setting.
 
 `[range]` is `24h | 3d | 7d | 30d | 1y` — rolling windows over stored history, free of API
 traffic but only as deep as what is stored, so run `backfill` once. Python 3.14 in CI.
+
+## Branches
+
+    main            this deployment: watches Zavidovići, and names it in config.py
+                    and in both workflow files
+    fork-template   the same system with the place in one file (data/place.json) and
+                    the map URL derived from the repository — fork this one
 
 ## Layout
 

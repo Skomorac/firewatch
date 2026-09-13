@@ -98,6 +98,14 @@ BUFFER_GEOJSON = place.BUFFER_FILE
 FIRMS_KEYCHAIN_SERVICE = "firewatch-firms"
 FIRMS_SIGNUP_URL = "https://firms.modaps.eosdis.nasa.gov/api/map_key/"
 
+# Copernicus Data Space, for the 10 m Sentinel-2 picture. Two values rather than
+# one, because this is OAuth2 client credentials and not an API key, so they are
+# stored as a single "id:secret" string under one Keychain item - `security` holds
+# one password per service, and splitting them across two services would let an
+# install end up with a mismatched pair.
+CDSE_KEYCHAIN_SERVICE = "firewatch-cdse"
+CDSE_SIGNUP_URL = "https://shapps.dataspace.copernicus.eu/dashboard/#/account/settings"
+
 DEFAULTS = {
     # NASA FIRMS map key. Limit is 5000 transactions / 10 min; an area call costs 2.
     # Empty on purpose - read through firms_key(), which prefers the environment and
@@ -214,6 +222,22 @@ DEFAULTS = {
     # it is built from the place id, so a fork identifies itself as itself.
     "user_agent": f"firewatch-{place.PLACE['id']}/1.0"
                   " (+https://github.com/) contact: local",
+    # Sentinel-2 at 10 m, rendered server-side once per new scene. Off by default:
+    # it is the only part of the system that needs a credential nothing else needs,
+    # and the map is complete without it.
+    "imagery_s2_enabled": False,
+    # Skip a scene cloudier than this. Measured over 17 days here, 4 of 9 scenes
+    # came in under 25% - so a stricter figure buys clarity and costs weeks.
+    "imagery_s2_max_cloud": 40.0,
+    # Fire danger (Canadian FWI System), computed once or twice a day from
+    # Open-Meteo weather at geo.forecast_point() - see firedanger.py. Unlike
+    # imagery_s2 this needs no credential and costs one HTTP call a day, so it
+    # defaults on.
+    "fire_danger_enabled": True,
+    # Days of forecast shown past today, including today itself. EFFIS's own
+    # ECMWF-driven layer goes to 9; the weather forecast under it is markedly
+    # less reliable by then, so this stays below what the API would allow (16).
+    "fire_danger_forecast_days": 6,
 }
 
 # Reference point for every bearing and distance "of town". Set by `setup` from
@@ -328,6 +352,41 @@ def firms_key() -> tuple[str | None, str]:
     return None, "not set"
 
 
+_warned_no_cdse = False
+
+
+def cdse_credentials() -> tuple[str | None, str | None, str]:
+    """(client_id, client_secret, where they came from), or (None, None, "not set").
+
+    Same order as `firms_key`, and the same contract: absent credentials are a
+    supported state, not a failure. Sentinel-2 is the only thing that needs these,
+    and it is the one imagery tier the map does not depend on - Meteosat and GIBS
+    are keyless, so losing this costs the 10 m layer and nothing else.
+
+    The pair travels as "id:secret" in one string so the two halves cannot drift
+    apart. `split(":", 1)` and not `split(":")`: a client secret can contain a
+    colon, an id cannot.
+    """
+    global _warned_no_cdse
+    for raw, src in ((os.environ.get("CDSE_CLIENT"), "environment"),
+                     (keychain_secret(CDSE_KEYCHAIN_SERVICE), "keychain")):
+        if raw and ":" in raw:
+            cid, sec = raw.split(":", 1)
+            if cid.strip() and sec.strip():
+                return cid.strip(), sec.strip(), src
+    cid = str(os.environ.get("CDSE_CLIENT_ID") or "").strip()
+    sec = str(os.environ.get("CDSE_CLIENT_SECRET") or "").strip()
+    if cid and sec:
+        return cid, sec, "environment"
+    if CFG.get("imagery_s2_enabled") and not _warned_no_cdse:
+        _warned_no_cdse = True
+        logging.getLogger("firewatch.config").info(
+            "imagery_s2_enabled is on but no Copernicus credentials are set, so the "
+            "10 m layer is skipped. Register a client at %s, then `set-cdse-key`.",
+            CDSE_SIGNUP_URL)
+    return None, None, "not set"
+
+
 def secrets() -> list[str]:
     """Every credential this process knows, for redaction.
 
@@ -336,15 +395,23 @@ def secrets() -> list[str]:
     """
     global _secrets_cache
     if _secrets_cache is None:
-        vals = {v for v in (firms_key()[0],) if v}
-        for env in ("FIRMS_MAP_KEY", "HTTPSMS_API_KEY"):
+        vals = {v for v in (firms_key()[0], cdse_credentials()[1]) if v}
+        for env in ("FIRMS_MAP_KEY", "HTTPSMS_API_KEY",
+                    "CDSE_CLIENT", "CDSE_CLIENT_SECRET"):
             v = os.environ.get(env)
             if v and v.strip():
                 vals.add(v.strip())
-        for svc in (FIRMS_KEYCHAIN_SERVICE, "firewatch-httpsms"):
+        for svc in (FIRMS_KEYCHAIN_SERVICE, "firewatch-httpsms",
+                    CDSE_KEYCHAIN_SERVICE):
             v = keychain_secret(svc)
             if v:
                 vals.add(v)
+        # "id:secret" is stored as one string, so the raw item redacts as a unit -
+        # but a traceback carries the *secret alone*, in a POST body. Add the halves
+        # separately or the interesting one survives.
+        for v in list(vals):
+            if ":" in v:
+                vals.update(part for part in v.split(":", 1) if part)
         # Short strings would redact half the log; a real key is never this small.
         _secrets_cache = sorted((v for v in vals if len(v) >= 12), key=len, reverse=True)
     return _secrets_cache
